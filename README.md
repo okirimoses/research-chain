@@ -153,8 +153,8 @@ submitProof: (payload: {
 
 1. Clone the repository
 ```bash
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/okirimoses/research-chain.git
+cd research-chain
 ```
 
 2. Install dependencies
