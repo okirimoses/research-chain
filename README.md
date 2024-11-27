@@ -148,7 +148,32 @@ submitProof: (payload: {
   results_hash: text
 }) => Result<ProofOfReproduction, Message>
 ```
+### Prerequisites
 
+requirements:
+
+- **dfx**: You have installed the latest version of the DFINITY Canister SDK, `dfx`. You can download it from the DFINITY SDK page. [installation guide](https://demergent-labs.github.io/azle/get_started.html#installation)
+
+ ```
+  use version dfx 0.22.0
+ ```
+- **Node.js**: You have installed Node.js, version 18 or above.
+```
+ v20.12.2
+
+```
+- Azle version use 
+ ```
+  azle 0.24.1
+ ```
+
+ - podman verion use
+
+ ```
+  podman version 3.4.4
+  
+ ```
+ 
 ## Installation
 
 1. Clone the repository

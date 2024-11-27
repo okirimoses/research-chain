@@ -6,14 +6,13 @@
       "candid": "https://github.com/dfinity/internet-identity/releases/download/release-2023-09-08/internet_identity.did",
       "wasm": "https://github.com/dfinity/internet-identity/releases/download/release-2023-09-08/internet_identity_dev.wasm.gz"
     },
-    "dfinity_js_backend": {
-      "type": "custom",
+    "dfinity_js_backend":{
+      "type":"azle",
       "main": "src/dfinity_js_backend/src/index.ts",
-      "candid": "src/dfinity_js_backend/src/index.did",
-      "build": "npx azle dfinity_js_backend",
-      "wasm": ".azle/dfinity_js_backend/dfinity_js_backend.wasm",
-      "gzip": true
-    }
+      "custom": {
+          "experimental": true
+      }
+     }
   },
   "defaults": {
     "build": {

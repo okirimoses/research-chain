@@ -17,7 +17,7 @@ import {
   bool,
   Err,
   Canister,
-} from "azle";
+} from "azle/experimental";
 
 // Data Structures
 
@@ -34,7 +34,7 @@ const Researcher = Record({
   contributions: Vec(text), // IDs of contributions
   achievements: Vec(text),
 });
-
+type  Researcher = typeof Researcher.tsType
 // Research Proposal
 const ResearchProposal = Record({
   id: text,
@@ -50,6 +50,8 @@ const ResearchProposal = Record({
   timeline: text, // JSON-encoded timeline data
 });
 
+type ResearchProposal = typeof ResearchProposal.tsType
+
 const Milestone = Record({
   id: text,
   description: text,
@@ -58,6 +60,7 @@ const Milestone = Record({
   status: text, // "pending", "completed"
   proofs: Vec(text), // IDs of proofs
 });
+type Milestone = typeof Milestone.tsType
 
 const Review = Record({
   id: text,
@@ -67,6 +70,7 @@ const Review = Record({
   stake_amount: nat64,
   verified: bool,
 });
+type Review = typeof Review.tsType
 
 const ProofOfReproduction = Record({
   id: text,
@@ -75,12 +79,16 @@ const ProofOfReproduction = Record({
   status: text, // "pending", "verified"
 });
 
+type ProofOfReproduction = typeof ProofOfReproduction.tsType
+
 const Message = Variant({
   Success: text,
   Error: text,
   NotFound: text,
   InvalidPayload: text,
 });
+
+type Message = typeof Message.tsType
 
 // Payload Structures
 
@@ -92,6 +100,8 @@ const researcherPayload = Record({
   phone: text,
 });
 
+type researcherPayload = typeof researcherPayload.tsType
+
 const CreateProposalPayload = Record({
   researcherId: text,
   title: text,
@@ -100,6 +110,7 @@ const CreateProposalPayload = Record({
   funding_target: nat64,
 });
 
+type CreateProposalPayload = typeof CreateProposalPayload.tsType
 const SubmitReviewPayload = Record({
   proposal_id: text,
   score: nat64,
@@ -107,11 +118,14 @@ const SubmitReviewPayload = Record({
   stake_amount: nat64,
 });
 
+type SubmitReviewPayload = typeof SubmitReviewPayload.tsType
+
 const FundProposalPayload = Record({
   proposal_id: text,
   funding_amount: nat64,
 });
 
+type FundProposalPayload = typeof FundProposalPayload.tsType
 const CreateMilestonePayload = Record({
   proposal_id: text,
   description: text,
@@ -146,7 +160,7 @@ export default Canister({
     Result(Researcher, Message),
     (payload) => {
       const { name, address, email, phone } = payload;
-
+      try {
       // Comprehensive input validations
       if (!name || name.trim().length < 2) {
         return Err({
@@ -199,10 +213,9 @@ export default Canister({
         achievements: [],
       };
 
-      try {
-        researchers.insert(id, researcher);
+       researchers.insert(id, researcher);
         return Ok(researcher);
-      } catch (error) {
+      } catch (error: any) {
         return Err({
           Error: `Failed to create researcher: ${
             error instanceof Error ? error.message : "Unknown error"
@@ -217,44 +230,58 @@ export default Canister({
     [text], // researcher_id
     Result(Researcher, Message),
     (researcherId) => {
-      const researcherOpt = researchers.get(researcherId);
+      try{
+        idPayloadValid(researcherId)
 
-      if ("None" in researcherOpt) {
-        return Err({
-          NotFound: `Researcher with id=${researcherId} not found.`,
-        });
+        const researcherOpt = researchers.get(researcherId);
+
+        if (!researcherOpt) {
+          return Err({
+            NotFound: `Researcher with id=${researcherId} not found.`,
+          });
+        }
+  
+        return Ok(researcherOpt.Some);
+      }catch(error: any){
+        return Err({Error: `Error occured ${error.message}`})
       }
-
-      return Ok(researcherOpt.Some);
     }
   ),
 
   // Function to get all researchers
   getAllResearchers: query([], Result(Vec(Researcher), Message), () => {
-    const allResearchers = researchers.values();
+     try{
+      const allResearchers = researchers.values();
 
-    if (allResearchers.length === 0) {
-      return Err({ NotFound: "No researchers found." });
-    }
-
-    return Ok(allResearchers);
+      if (allResearchers.length === 0) {
+        return Err({ NotFound: "No researchers found." });
+      }
+  
+      return Ok(allResearchers);
+     }catch(error: any) {
+      return Err({Error: `Error occured ${error.message}`})
+     }
   }),
 
   // Function to get researcher by owner using filter
   getResearcherByOwner: query([], Result(Researcher, Message), () => {
-    const researcherOpt = researchers.values().filter((researcher) => {
-      return (
-        researcher.owner.toText() === ic.caller().toText // Filter by owner
-      );
-    });
-
-    if (researcherOpt.length === 0) {
-      return Err({
-        NotFound: `Researcher with owner=${ic.caller()} not found.`,
+    try{
+      const researcherOpt = researchers.values().filter((researcher) => {
+        return (
+          researcher.owner.toText() === ic.caller().toText // Filter by owner
+        );
       });
+  
+      if (researcherOpt.length === 0) {
+        return Err({
+          NotFound: `Researcher with owner=${ic.caller()} not found.`,
+        });
+      }
+  
+      return Ok(researcherOpt[0]);
+    }catch(error: any){
+      return Err({Error: `Error occured ${error.message}`})
     }
-
-    return Ok(researcherOpt[0]);
   }),
 
   // Create Proposal
@@ -262,8 +289,10 @@ export default Canister({
     [CreateProposalPayload],
     Result(ResearchProposal, Message),
     (payload) => {
-      const { researcherId, title, description, methodology, funding_target } =
+      try{
+        const { researcherId, title, description, methodology, funding_target } =
         payload;
+        idPayloadValid(researcherId)
 
       if (!title || !description || !methodology || funding_target <= 0n) {
         return Err({
@@ -275,7 +304,7 @@ export default Canister({
       // Check if researcher exists
       const researcherOpt = researchers.get(researcherId);
 
-      if ("None" in researcherOpt) {
+      if (!researcherOpt) {
         return Err({
           NotFound: `Researcher with id=${researcherId} not found.`,
         });
@@ -293,11 +322,14 @@ export default Canister({
         current_funding: 0n,
         stage: "draft",
         reviews: [],
-        timeline: JSON.stringify({ created_at: new Date().toISOString() }),
+        timeline: getCurrentDate(),
       };
 
       proposals.insert(id, proposal);
       return Ok(proposal);
+      }catch(error: any) {
+        return Err({Error: `Error occured ${error.message}`})
+      }
     }
   ),
 
@@ -306,25 +338,34 @@ export default Canister({
     [text], // proposal_id
     Result(ResearchProposal, Message),
     (proposalId) => {
-      const proposalOpt = proposals.get(proposalId);
+      try{
+        idPayloadValid(proposalId)
+        const proposalOpt = proposals.get(proposalId);
 
-      if ("None" in proposalOpt) {
+      if (!proposalOpt) {
         return Err({ NotFound: `Proposal with id=${proposalId} not found.` });
       }
 
       return Ok(proposalOpt.Some);
+      }catch(error: any) {
+        return Err({Error: `Error occured ${error.message}`})
+      }
     }
   ),
 
   // Get All proposals
   getAllproposals: query([], Result(Vec(ResearchProposal), Message), () => {
-    const allproposals = proposals.values();
+    try{
+      const allproposals = proposals.values();
 
-    if (allproposals.length === 0) {
-      return Err({ NotFound: "No proposals found." });
+      if (allproposals.length === 0) {
+        return Err({ NotFound: "No proposals found." });
+      }
+  
+      return Ok(allproposals);
+    }catch(error: any){
+      return Err({Error: `Error occured ${error.message}`})
     }
-
-    return Ok(allproposals);
   }),
 
   // Get Proposals by Researcher ID
@@ -332,7 +373,9 @@ export default Canister({
     [text], // researcher_id
     Result(Vec(ResearchProposal), Message),
     (researcherId) => {
-      const proposalsByResearcher = proposals
+      try{
+        idPayloadValid(researcherId)
+        const proposalsByResearcher = proposals
         .values()
         .filter((proposal) => proposal.researcherId === researcherId);
 
@@ -343,6 +386,9 @@ export default Canister({
       }
 
       return Ok(proposalsByResearcher);
+      } catch(error: any){
+        return Err({Error: `Error occured ${error.message}`})
+      }
     }
   ),
 
@@ -351,11 +397,13 @@ export default Canister({
     [SubmitReviewPayload],
     Result(Review, Message),
     (payload) => {
-      const { proposal_id, score, comments, stake_amount } = payload;
+      try{
+        const { proposal_id, score, comments, stake_amount } = payload;
+        idPayloadValid(proposal_id)
 
       const proposalOpt = proposals.get(proposal_id);
 
-      if ("None" in proposalOpt) {
+      if (!proposalOpt) {
         return Err({ NotFound: `Proposal with id=${proposal_id} not found.` });
       }
 
@@ -382,6 +430,9 @@ export default Canister({
       proposals.insert(proposal_id, proposal);
 
       return Ok(review);
+      }catch(error: any) {
+        return Err({Error: `Error occured ${error.message}`})
+      }
     }
   ),
 
@@ -390,11 +441,13 @@ export default Canister({
     [FundProposalPayload],
     Result(ResearchProposal, Message),
     (payload) => {
+     try{
       const { proposal_id, funding_amount } = payload;
+      idPayloadValid(proposal_id)
 
       const proposalOpt = proposals.get(proposal_id);
 
-      if ("None" in proposalOpt) {
+      if (!proposalOpt) {
         return Err({ NotFound: `Proposal with id=${proposal_id} not found.` });
       }
 
@@ -412,6 +465,9 @@ export default Canister({
 
       proposals.insert(proposal_id, proposal);
       return Ok(proposal);
+     }catch(error: any){
+      return Err({Error: `Error occured ${error.message}`})
+     }
     }
   ),
 
@@ -420,11 +476,13 @@ export default Canister({
     [CreateMilestonePayload],
     Result(Milestone, Message),
     (payload) => {
-      const { proposal_id, description, required_funding, deadline } = payload;
+      try{
+        const { proposal_id, description, required_funding, deadline } = payload;
+        idPayloadValid(proposal_id)
 
       const proposalOpt = proposals.get(proposal_id);
 
-      if ("None" in proposalOpt) {
+      if (!proposalOpt) {
         return Err({ NotFound: `Proposal with id=${proposal_id} not found.` });
       }
 
@@ -445,6 +503,9 @@ export default Canister({
       proposals.insert(proposal_id, proposal);
 
       return Ok(milestone);
+      }catch(error: any) {
+        return Err({Error: `Error occured ${error.message}`})
+      }
     }
   ),
 
@@ -453,25 +514,30 @@ export default Canister({
     [VerifyMilestonePayload],
     Result(Milestone, Message),
     (payload) => {
-      const { proposal_id, milestone_id } = payload;
+      try{
+        const { proposal_id, milestone_id } = payload;
+        idPayloadValid(milestone_id)
 
-      const proposalOpt = proposals.get(proposal_id);
-      const milestoneOpt = milestones.get(milestone_id);
-
-      if ("None" in proposalOpt || "None" in milestoneOpt) {
-        return Err({ NotFound: "Proposal or Milestone not found." });
+        const proposalOpt = proposals.get(proposal_id);
+        const milestoneOpt = milestones.get(milestone_id);
+  
+        if (!proposalOpt || !milestoneOpt) {
+          return Err({ NotFound: "Proposal or Milestone not found." });
+        }
+  
+        const milestone = milestoneOpt.Some;
+  
+        if (milestone.status !== "pending") {
+          return Err({ InvalidPayload: "Milestone is not in a pending state." });
+        }
+  
+        milestone.status = "completed";
+        milestones.insert(milestone_id, milestone);
+  
+        return Ok(milestone);
+      }catch(error: any) {
+        return Err({Error: `Error occured ${error.message}`})
       }
-
-      const milestone = milestoneOpt.Some;
-
-      if (milestone.status !== "pending") {
-        return Err({ InvalidPayload: "Milestone is not in a pending state." });
-      }
-
-      milestone.status = "completed";
-      milestones.insert(milestone_id, milestone);
-
-      return Ok(milestone);
     }
   ),
 
@@ -480,11 +546,13 @@ export default Canister({
     [SubmitProofPayload],
     Result(ProofOfReproduction, Message),
     (payload) => {
-      const { milestone_id, methodology_hash, results_hash } = payload;
+      try{ 
+        const { milestone_id, methodology_hash, results_hash } = payload;
+        idPayloadValid(milestone_id)
 
       const milestoneOpt = milestones.get(milestone_id);
 
-      if ("None" in milestoneOpt) {
+      if (!milestoneOpt) {
         return Err({
           NotFound: `Milestone with id=${milestone_id} not found.`,
         });
@@ -505,6 +573,23 @@ export default Canister({
       milestones.insert(milestone_id, milestone);
 
       return Ok(proof);
+      }catch(error: any){
+        return Err({Error: `Error occured ${error.message}`})
+      }
     }
   ),
 });
+
+
+const idPayloadValid = (id: text) => {
+  if (!id || typeof id !== "string" || id.trim() === "") {
+    throw Err({ InvalidPayload: "Please provide a valid ID as text." });
+  }
+};
+
+
+const getCurrentDate = () => {
+  const timestamp = new Number(ic.time());
+  const date = new Date(timestamp.valueOf() / 1_000_000); 
+  return date.toISOString().split('T')[0]; 
+};
